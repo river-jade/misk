@@ -7,10 +7,13 @@ import com.google.common.util.concurrent.Service
 import com.google.common.util.concurrent.ServiceManager
 import com.google.inject.Guice
 import com.google.inject.Module
+import jdk.jfr.Timespan.MILLISECONDS
+import misk.devmode.DevModeBehavior
 import misk.devmode.DevModeService
 import misk.inject.KAbstractModule
 import misk.inject.getInstance
 import misk.logging.getLogger
+import java.util.concurrent.TimeUnit
 
 /** The entry point for misk applications */
 class MiskApplication(private val modules: List<Module>, commands: List<MiskCommand> = listOf()) {
@@ -89,6 +92,7 @@ class MiskApplication(private val modules: List<Module>, commands: List<MiskComm
       override fun configure() {
         if (devMode) {
           multibind<Service>().to<DevModeService>()
+          newMultibinder<DevModeBehavior>()
         }
       }
     }, *modules.toTypedArray())
@@ -102,7 +106,7 @@ class MiskApplication(private val modules: List<Module>, commands: List<MiskComm
 
     log.info { "starting services and waiting for them to be healthy" }
     serviceManager.startAsync()
-    serviceManager.awaitHealthy()
+    serviceManager.awaitHealthy(10000, TimeUnit.MILLISECONDS)
     log.info { "all services are healthy" }
     serviceManager.awaitStopped()
     log.info { "all services stopped" }

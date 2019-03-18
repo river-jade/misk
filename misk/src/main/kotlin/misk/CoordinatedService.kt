@@ -87,7 +87,10 @@ internal class CoordinatedService(val service: Service) : AbstractService(), Dep
   override fun toString() = service.toString()
 
   companion object {
-    fun coordinate(services: List<Service>, blockedOnDevModeServices: List<Service> = listOf()): ServiceManager {
+    fun coordinate(
+      services: List<Service>,
+      blockedOnDevModeServices: List<Service> = listOf()
+    ): ServiceManager {
       val coordinatedServices = services.map { CoordinatedService(it) }
       val errors = mutableListOf<String>()
 
@@ -104,7 +107,8 @@ internal class CoordinatedService(val service: Service) : AbstractService(), Dep
 
       // DevModeService is bound, require any services it specifies to wait on it
       // to be RUNNING before starting up
-      val blockOnDevMode = services.any { it is DevModeService }
+      val devModeCoordinatedService =
+          coordinatedServices.firstOrNull { it.service is DevModeService }
 
       // Satisfy all consumers with a producer.
       for (service in coordinatedServices) {
@@ -116,6 +120,10 @@ internal class CoordinatedService(val service: Service) : AbstractService(), Dep
           }
           service.upstream.add(producer)
           producer.downstream.add(service)
+        }
+        if (devModeCoordinatedService != null && blockedOnDevModeServices.any { it == service }) {
+          service.upstream.add(devModeCoordinatedService)
+          devModeCoordinatedService.downstream.add(service)
         }
       }
 
@@ -158,7 +166,9 @@ internal class CoordinatedService(val service: Service) : AbstractService(), Dep
     }
 
     enum class CycleValidity {
-      UNKNOWN, CHECKING_FOR_CYCLES, NO_CYCLES,
+      UNKNOWN,
+      CHECKING_FOR_CYCLES,
+      NO_CYCLES,
     }
   }
 }
