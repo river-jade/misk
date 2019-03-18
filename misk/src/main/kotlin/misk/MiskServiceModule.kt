@@ -19,6 +19,7 @@ import com.google.inject.spi.LinkedKeyBinding
 import com.google.inject.spi.ProviderInstanceBinding
 import com.google.inject.util.Types
 import misk.concurrent.SleeperModule
+import misk.devmode.BlocksOnDevMode
 import misk.environment.RealEnvVarModule
 import misk.healthchecks.HealthCheck
 import misk.inject.KAbstractModule
@@ -68,7 +69,7 @@ class MiskCommonServiceModule : KAbstractModule() {
 
   @Provides
   @Singleton
-  fun provideServiceManager(injector: Injector, services: List<Service>): ServiceManager {
+  fun provideServiceManager(@BlocksOnDevMode blocksOnDevModeServices: List<Service>, injector: Injector, services: List<Service>): ServiceManager {
     // NB(mmihic): We get the binding for the Set<Service> because this uses a multibinder,
     // which allows us to retrieve the bindings for the elements
     val serviceListBinding = injector.getBinding(serviceSetKey)
@@ -82,7 +83,7 @@ class MiskCommonServiceModule : KAbstractModule() {
       "the following services are not marked as @Singleton: ${invalidServices.joinToString(", ")}"
     }
 
-    return CoordinatedService.coordinate(services)
+    return CoordinatedService.coordinate(services, blocksOnDevModeServices)
   }
 
   @Suppress("DEPRECATION")
