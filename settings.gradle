@@ -1,5 +1,6 @@
 include ':misk'
 include ':misk-aws'
+include ':misk-devmode'
 include ':misk-jaeger'
 include ':misk-grpc-tests'
 include ':misk-hibernate'

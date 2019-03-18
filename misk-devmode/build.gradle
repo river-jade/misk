@@ -1,0 +1,17 @@
+buildscript {
+  dependencies {
+    classpath dep.kotlinNoArgPlugin
+  }
+}
+
+apply plugin: 'kotlin-jpa'
+
+dependencies {
+  compile dep.guava
+  compile dep.guice
+  compile dep.guiceMultibindings
+  compile project(':misk')
+  compile project(':misk-hibernate')
+
+  testCompile project(':misk-testing')
+}
