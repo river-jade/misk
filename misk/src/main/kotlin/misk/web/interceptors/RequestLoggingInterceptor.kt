@@ -70,6 +70,7 @@ internal class RequestLoggingInterceptor internal constructor(
       return result
     } catch (t: Throwable) {
       logger.info { "${action.name} principal=$principal time=$stopwatch failed" }
+      logger.error(t) { "Internal error occurred" }
       throw t
     }
   }
