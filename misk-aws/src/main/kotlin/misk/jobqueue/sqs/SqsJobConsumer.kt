@@ -71,21 +71,13 @@ internal class SqsJobConsumer @Inject internal constructor(
     private val prioritizedQueues = queueNames.map { queues[it] }
 
     fun runOnce(): Status {
-      return runOnce(prioritizedQueues[0], prioritizedQueues.drop(1))
-    }
-
-    fun runOnce(head: ResolvedQueue, tail: List<ResolvedQueue>): Status {
-      val status = runOnce(head)
-
-      if (status != Status.NO_WORK) {
-        return status
+      prioritizedQueues.forEach { resolvedQueue ->
+        val status = runOnce(resolvedQueue)
+        if (status != Status.NO_WORK) {
+          return status
+        }
       }
-
-      if (tail.isEmpty()) {
-        return Status.NO_WORK
-      }
-
-      return runOnce(tail.first(), tail.drop(1))
+      return Status.NO_WORK
     }
 
     fun runOnce(queue: ResolvedQueue): Status {
