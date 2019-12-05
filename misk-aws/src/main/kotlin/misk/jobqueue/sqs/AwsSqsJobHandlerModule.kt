@@ -1,11 +1,13 @@
 package misk.jobqueue.sqs
 
 import com.google.common.util.concurrent.AbstractIdleService
+import com.google.inject.TypeLiteral
 import misk.ServiceModule
 import misk.inject.KAbstractModule
 import misk.jobqueue.JobHandler
 import misk.jobqueue.QueueName
 import javax.inject.Inject
+import javax.inject.Qualifier
 import javax.inject.Singleton
 import kotlin.reflect.KClass
 
@@ -17,7 +19,10 @@ class AwsSqsJobHandlerModule<T : JobHandler> private constructor(
   private val handler: KClass<T>
 ) : KAbstractModule() {
   override fun configure() {
-    newMapBinder<List<QueueName>, JobHandler>().addBinding(queueNames).to(handler.java)
+    newMapBinder(
+        object : TypeLiteral<List<QueueName>>() {},
+        object : TypeLiteral<JobHandler>() {}
+    ).addBinding(queueNames).to(handler.java)
     install(ServiceModule<AwsSqsJobHandlerSubscriptionService>())
   }
 
