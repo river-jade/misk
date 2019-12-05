@@ -38,22 +38,24 @@ internal class SqsJobConsumer @Inject internal constructor(
 ) : JobConsumer {
   private val subscriptions = ConcurrentHashMap<QueueName, QueueReceiver>()
 
-  override fun subscribe(queueName: QueueName, handler: JobHandler) {
-    val receiver = QueueReceiver(queueName, handler)
-    check(subscriptions.putIfAbsent(queueName, receiver) == null) {
-      "already subscribed to queue ${queueName.value}"
-    }
+  override fun subscribe(queueNames: List<QueueName>, handler: JobHandler) {
+    val receiver = QueueReceiver(queueNames, handler)
+    queueNames.forEach { queueName ->
+      check(subscriptions.putIfAbsent(queueName, receiver) == null) {
+        "already subscribed to queue ${queueName.value}"
+      }
 
-    log.info {
-      "subscribing to queue ${queueName.value} with ${config.concurrent_receivers_per_queue} receivers"
-    }
+      log.info {
+        "subscribing to queue ${queueName.value} with ${config.concurrent_receivers_per_queue} receivers"
+      }
 
-    for (i in (0 until config.concurrent_receivers_per_queue)) {
-      taskQueue.scheduleWithBackoff(Duration.ZERO) {
-        // Don't call handlers until all services are ready, otherwise handlers will crash because
-        // the services they might need (databases, etc.) won't be ready.
-        serviceManagerProvider.get().awaitHealthy()
-        receiver.runOnce()
+      for (i in (0 until config.concurrent_receivers_per_queue)) {
+        taskQueue.scheduleWithBackoff(Duration.ZERO) {
+          // Don't call handlers until all services are ready, otherwise handlers will crash because
+          // the services they might need (databases, etc.) won't be ready.
+          serviceManagerProvider.get().awaitHealthy()
+          receiver.runOnce()
+        }
       }
     }
   }
@@ -63,21 +65,33 @@ internal class SqsJobConsumer @Inject internal constructor(
   }
 
   internal inner class QueueReceiver(
-    private val queueName: QueueName,
+    queueNames: List<QueueName>,
     private val handler: JobHandler
   ) {
-    private val queue = queues[queueName]
+    private val prioritizedQueues = queueNames.map { queues[it] }
 
     fun runOnce(): Status {
+      prioritizedQueues.forEach { resolvedQueue ->
+        val status = runOnce(resolvedQueue)
+        if (status != Status.NO_WORK) {
+          return@runOnce status
+        }
+      }
+      return Status.NO_WORK
+    }
+
+    fun runOnce(queue: ResolvedQueue): Status {
       val (receiveDuration, messages) = queue.call { client ->
         val receiveRequest = ReceiveMessageRequest()
-          .withAttributeNames("All")
-          .withMessageAttributeNames("All")
-          .withQueueUrl(queue.url)
-          .withMaxNumberOfMessages(10)
+            .withAttributeNames("All")
+            .withMessageAttributeNames("All")
+            .withQueueUrl(queue.url)
+            .withMaxNumberOfMessages(10)
 
         timed { client.receiveMessage(receiveRequest).messages }
       }
+      val queueName = queue.name
+
       metrics.sqsReceiveTime.record(receiveDuration.toMillis().toDouble(), queueName.value)
 
       if (messages.size == 0) {
