@@ -74,7 +74,7 @@ internal class SqsJobConsumer @Inject internal constructor(
       prioritizedQueues.forEach { resolvedQueue ->
         val status = runOnce(resolvedQueue)
         if (status != Status.NO_WORK) {
-          return status
+          return@runOnce status
         }
       }
       return Status.NO_WORK
